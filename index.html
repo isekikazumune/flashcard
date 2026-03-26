@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>英単語フラッシュカード</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Noto+Sans+JP:wght@400;700&family=Fira+Code&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after {
+  box-sizing: border-box; margin: 0; padding: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+:root {
+  --bg: #0e1117;
+  --surface: #1a2236;
+  --accent: #f0c060;
+  --blue: #5b8dee;
+  --green: #3ecf8e;
+  --red: #f06060;
+  --text: #e8eaf0;
+  --muted: #6b7590;
+  --border: rgba(255,255,255,0.09);
+}
+html, body {
+  height: 100%; width: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Noto Sans JP', sans-serif;
+  overflow: hidden;
+}
+#app {
+  height: 100dvh;
+  display: grid;
+  grid-template-rows: auto auto 1fr auto auto;
+  max-width: 430px;
+  margin: 0 auto;
+  padding: 12px 14px 14px;
+  gap: 8px;
+}
+
+/* ── ヘッダー ── */
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.logo {
+  font-family: 'Playfair Display', serif;
+  font-size: 1rem;
+  color: var(--accent);
+}
+.header-right { display: flex; align-items: center; gap: 8px; }
+
+/* buttonタグで作ったpill */
+button.pill {
+  font-size: 0.72rem;
+  padding: 4px 11px;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--muted);
+  font-family: 'Noto Sans JP', sans-serif;
+  cursor: pointer;
+}
+button.pill.on {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: rgba(240,192,96,0.1);
+}
+.count { font-size: 0.78rem; color: var(--muted); }
+.count b { color: var(--text); }
+
+/* ── プログレス ── */
+.prog-wrap { height: 3px; background: var(--border); border-radius: 4px; overflow: hidden; }
+.prog-bar  { height: 100%; background: linear-gradient(90deg, var(--blue), var(--accent)); border-radius: 4px; transition: width .4s; }
+
+/* ── カード（buttonタグ） ── */
+.scene { display: flex; align-items: center; justify-content: center; min-height: 0; }
+
+button#card {
+  /* リセット */
+  appearance: none;
+  -webkit-appearance: none;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-family: 'Noto Sans JP', sans-serif;
+  text-align: center;
+  cursor: pointer;
+  /* レイアウト */
+  width: 100%;
+  border-radius: 18px;
+  padding: 18px 20px 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+}
+button#card:active { opacity: .85; }
+
+.card-section {
+  font-size: 0.62rem;
+  color: var(--muted);
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  align-self: flex-start;
+}
+.card-word {
+  font-family: 'Playfair Display', serif;
+  font-size: clamp(1.9rem, 9vw, 2.6rem);
+  font-weight: 700;
+  line-height: 1.1;
+}
+.card-pron {
+  font-family: 'Fira Code', monospace;
+  font-size: 0.78rem;
+  color: var(--blue);
+}
+.pos-badge {
+  font-size: 0.62rem;
+  font-weight: 700;
+  padding: 2px 10px;
+  border-radius: 20px;
+  letter-spacing: .05em;
+}
+.pos-動詞  { background: rgba(62,207,142,.15); color: var(--green); border: 1px solid rgba(62,207,142,.3); }
+.pos-名詞  { background: rgba(91,141,238,.15); color: var(--blue);  border: 1px solid rgba(91,141,238,.3); }
+.pos-形容詞{ background: rgba(240,192,96,.15); color: var(--accent); border: 1px solid rgba(240,192,96,.3); }
+.pos-副詞  { background: rgba(240,96,96,.15);  color: var(--red);   border: 1px solid rgba(240,96,96,.3); }
+.pos-前置詞{ background: rgba(180,96,240,.15); color: #c060f0;      border: 1px solid rgba(180,96,240,.3); }
+
+.hint { font-size: 0.65rem; color: var(--muted); opacity: .55; }
+.divider { width: 100%; height: 1px; background: var(--border); }
+
+.meaning {
+  font-size: clamp(0.95rem, 4.5vw, 1.2rem);
+  font-weight: 700;
+  color: var(--accent);
+  line-height: 1.4;
+}
+.ex-en {
+  font-size: 0.72rem;
+  color: var(--muted);
+  line-height: 1.65;
+  font-style: italic;
+}
+.ex-en b { color: var(--blue); font-style: normal; font-weight: 500; }
+.ex-ja { font-size: 0.68rem; color: var(--muted); line-height: 1.6; opacity: .8; }
+
+/* 裏面は初期非表示 */
+.back { display: none; width: 100%; flex-direction: column; align-items: center; gap: 7px; }
+.show-back .back { display: flex; }
+.show-back .hint { display: none; }
+
+/* ── 統計 ── */
+.stats { display: flex; gap: 6px; }
+.stat {
+  flex: 1;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 5px 8px;
+  text-align: center;
+}
+.stat-n { font-size: 1rem; font-weight: 700; line-height: 1; }
+.g { color: var(--green); }
+.r { color: var(--red); }
+.b { color: var(--blue); }
+.stat-l { font-size: 0.58rem; color: var(--muted); margin-top: 2px; }
+
+/* ── アクションボタン ── */
+.actions { display: flex; gap: 10px; }
+.btn {
+  flex: 1;
+  padding: 14px 8px;
+  border-radius: 13px;
+  font-family: 'Noto Sans JP', sans-serif;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.btn:active { opacity: .7; transform: scale(.96); }
+.btn-bad  { background: rgba(240,96,96,.12);  border: 1.5px solid rgba(240,96,96,.4);  color: var(--red); }
+.btn-good { background: rgba(62,207,142,.12); border: 1.5px solid rgba(62,207,142,.4); color: var(--green); }
+.btn-skip { flex: 0 0 46px; background: var(--surface); border: 1.5px solid var(--border); color: var(--muted); font-size: 1.1rem; }
+
+/* ── 完了画面 ── */
+#done {
+  display: none;
+  position: fixed; inset: 0; z-index: 99;
+  background: var(--bg);
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 28px 24px;
+  text-align: center;
+}
+#done.show { display: flex; }
+.done-icon  { font-size: 3rem; }
+.done-title { font-family: 'Playfair Display', serif; font-size: 1.7rem; color: var(--accent); }
+.done-sub   { font-size: 0.83rem; color: var(--muted); line-height: 1.7; }
+.done-stats {
+  display: flex; gap: 24px;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 14px; padding: 14px 28px;
+}
+.ds { text-align: center; }
+.ds-n { font-size: 1.5rem; font-weight: 700; }
+.ds-l { font-size: 0.65rem; color: var(--muted); margin-top: 2px; }
+.btn-main {
+  background: linear-gradient(135deg, var(--blue), var(--accent));
+  color: #0e1117; border: none;
+  padding: 13px 32px; border-radius: 13px;
+  font-family: 'Noto Sans JP', sans-serif;
+  font-size: 0.9rem; font-weight: 700; cursor: pointer;
+}
+.btn-sub {
+  background: transparent; color: var(--red);
+  border: 1.5px solid rgba(240,96,96,.4);
+  padding: 11px 24px; border-radius: 13px;
+  font-family: 'Noto Sans JP', sans-serif;
+  font-size: 0.83rem; font-weight: 700; cursor: pointer;
+}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <div class="header">
+    <div class="logo">Vocab Flash</div>
+    <div class="header-right">
+      <button class="pill on" id="pill-all"     onclick="setFilter('all')">全て</button>
+      <button class="pill"    id="pill-unknown" onclick="setFilter('unknown')">未習得</button>
+      <div class="count"><b id="cur">1</b> / <b id="tot">1</b></div>
+    </div>
+  </div>
+
+  <div class="prog-wrap"><div class="prog-bar" id="prog" style="width:0%"></div></div>
+
+  <div class="scene">
+    <button id="card" onclick="flip()">
+      <span class="card-section" id="c-sec"></span>
+      <span class="card-word"    id="c-word"></span>
+      <span class="card-pron"   id="c-pron"></span>
+      <span class="pos-badge"   id="c-pos"></span>
+      <span class="hint">タップして答えを見る 👆</span>
+      <div class="back">
+        <div class="divider"></div>
+        <span class="meaning" id="c-meaning"></span>
+        <div class="divider"></div>
+        <span class="ex-en"  id="c-ex-en"></span>
+        <span class="ex-ja"  id="c-ex-ja"></span>
+      </div>
+    </button>
+  </div>
+
+  <div class="stats">
+    <div class="stat"><div class="stat-n g" id="s-good">0</div><div class="stat-l">✓ 覚えた</div></div>
+    <div class="stat"><div class="stat-n r" id="s-bad">0</div><div class="stat-l">✗ もう一度</div></div>
+    <div class="stat"><div class="stat-n b" id="s-left">0</div><div class="stat-l">残り</div></div>
+  </div>
+
+  <div class="actions">
+    <button class="btn btn-bad"  onclick="answer(false)">✗ もう一度</button>
+    <button class="btn btn-skip" onclick="next(false)">→</button>
+    <button class="btn btn-good" onclick="answer(true)">✓ 覚えた</button>
+  </div>
+
+</div>
+
+<div id="done">
+  <div class="done-icon">🎉</div>
+  <div class="done-title">セット完了！</div>
+  <div class="done-sub" id="done-sub"></div>
+  <div class="done-stats">
+    <div class="ds"><div class="ds-n g" id="d-good">0</div><div class="ds-l">覚えた</div></div>
+    <div class="ds"><div class="ds-n r" id="d-bad">0</div><div class="ds-l">もう一度</div></div>
+  </div>
+  <button class="btn-main" onclick="restart(false)">🔄 最初からやり直す</button>
+  <button class="btn-sub"  id="btn-retry" style="display:none" onclick="restart(true)"></button>
+</div>
+
+<script>
+const VOCAB = [
+  {no:1,word:"create",pron:"[kriéit]",pos:"動詞",meaning:"を創り出す；創造、制作",exEn:"Technological change will <b>create</b> new ways of living.",exJa:"技術の変化は新たな生活様式を創り出す。",sec:"Section 1"},
+  {no:2,word:"increase",pron:"[inkrís]",pos:"動詞",meaning:"増加する；を増やす",exEn:"Japan's real GDP <b>increased</b> by 1.9 percent last year.",exJa:"日本の実質GDPは昨年1.9パーセント増加した。",sec:"Section 1"},
+  {no:3,word:"improve",pron:"[imprúv]",pos:"動詞",meaning:"を向上させる；よくなる",exEn:"Light exercise <b>improves</b> thinking ability.",exJa:"軽い運動は思考力を向上させる。",sec:"Section 1"},
+  {no:4,word:"mean",pron:"[míːn]",pos:"動詞",meaning:"を意味する",exEn:"Her silence <b>means</b> she does not agree with you.",exJa:"彼女の沈黙は同意していないことを意味する。",sec:"Section 1"},
+  {no:5,word:"own",pron:"[óun]",pos:"動詞",meaning:"を所有している；自分の",exEn:"A millionaire from China <b>owns</b> this hotel.",exJa:"中国の富豪がこのホテルを所有している。",sec:"Section 1"},
+  {no:6,word:"include",pron:"[inklúːd]",pos:"動詞",meaning:"を含む",exEn:"Jane's work <b>includes</b> typing letters and making appointments.",exJa:"ジェーンの仕事は手紙をタイプしたりアポを取ることを含む。",sec:"Section 1"},
+  {no:7,word:"consider",pron:"[kənsídər]",pos:"動詞",meaning:"を見なす；について考える",exEn:"She <b>considers</b> herself to be lucky.",exJa:"彼女は自分自身を幸運だと見なしている。",sec:"Section 1"},
+  {no:8,word:"allow",pron:"[əláu]",pos:"動詞",meaning:"を許す；…するのを許す",exEn:"The company <b>allows</b> its employees to take long winter vacations.",exJa:"その会社は従業員が長い冬休みを取るのを許している。",sec:"Section 1"},
+  {no:9,word:"suggest",pron:"[səgdʒést]",pos:"動詞",meaning:"を提案する",exEn:"The teacher <b>suggested</b> that he study physics in university.",exJa:"先生は彼が大学で物理学を学ぶことを提案した。",sec:"Section 1"},
+  {no:10,word:"produce",pron:"[prədjúːs]",pos:"動詞",meaning:"を生産する；を取り出す",exEn:"The manufacturer <b>produces</b> home electrical appliances.",exJa:"その製造業者は家庭用電化製品を生産している。",sec:"Section 1"},
+  {no:11,word:"decide",pron:"[disáid]",pos:"動詞",meaning:"を決める；決定する",exEn:"She has <b>decided</b> to memorize ten English words a day.",exJa:"彼女は1日に10個の英単語を覚えることに決めた。",sec:"Section 1"},
+  {no:12,word:"offer",pron:"[ɔ́fər]",pos:"動詞",meaning:"を提供する；申し出る",exEn:"Uncle George <b>offered</b> me an opportunity to work for his company.",exJa:"ジョージおじさんは会社で働く機会を提供した。",sec:"Section 1"},
+  {no:13,word:"require",pron:"[rikwáiər]",pos:"動詞",meaning:"を要求する；必要とする",exEn:"The Road Traffic Law <b>requires</b> you to wear a seat belt.",exJa:"道路交通法はシートベルトの着用を要求する。",sec:"Section 1"},
+  {no:14,word:"share",pron:"[ʃéər]",pos:"動詞",meaning:"を共有する；を分担する",exEn:"I <b>share</b> my office space with other people.",exJa:"私はほかの人々と事務所スペースを共用している。",sec:"Section 1"},
+  {no:15,word:"store",pron:"[stɔːr]",pos:"動詞",meaning:"を保存する；蓄積",exEn:"You should <b>store</b> backups of data on the Internet regularly.",exJa:"定期的にデータのバックアップを保存するべきだ。",sec:"Section 1"},
+  {no:16,word:"tend",pron:"[ténd]",pos:"動詞",meaning:"傾向がある",exEn:"My town <b>tends</b> to get windy.",exJa:"私の町は風がよく吹く傾向がある。",sec:"Section 1"},
+  {no:17,word:"concern",pron:"[kənsə́rn]",pos:"動詞",meaning:"心配している；に関連する",exEn:"We are <b>concerned</b> about the negative effect of the new tax law.",exJa:"私たちは新しい税法のマイナス効果を心配している。",sec:"Section 1"},
+  {no:18,word:"describe",pron:"[diskráib]",pos:"動詞",meaning:"について述べる；を説明する",exEn:"She <b>described</b> her physical condition to her doctor.",exJa:"彼女は医師に自分の体調を説明した。",sec:"Section 1"},
+  {no:19,word:"involve",pron:"[invɔ́lv]",pos:"動詞",meaning:"を関与させる；を伴う",exEn:"In Japan, more and more men are <b>involved</b> in raising children.",exJa:"日本では、子育てにかかわる男性が増えつつある。",sec:"Section 1"},
+  {no:20,word:"reduce",pron:"[ridjúːs]",pos:"動詞",meaning:"を減らす；減少する",exEn:"Good eating habits can <b>reduce</b> the risk of heart disease.",exJa:"よい食習慣は心臓病の危険を減らし得る。",sec:"Section 1"},
+  {no:21,word:"design",pron:"[dizáin]",pos:"動詞",meaning:"を設計する；計画する",exEn:"Airbags are <b>designed</b> to protect average-sized adult males.",exJa:"エアバッグは平均的な成人男性を保護するように設計されている。",sec:"Section 1"},
+  {no:22,word:"force",pron:"[fɔːrs]",pos:"動詞",meaning:"に強いる；力",exEn:"The scandal <b>forced</b> the CEO to resign from his position.",exJa:"そのスキャンダルはCEOに辞任を強制した。",sec:"Section 1"},
+  {no:23,word:"limit",pron:"[límit]",pos:"動詞",meaning:"を制限する；制限",exEn:"\"Tweets\" were originally <b>limited</b> to 140 characters.",exJa:"「ツイート」はもとは140文字までに限られていた。",sec:"Section 1"},
+  {no:24,word:"bear",pron:"[béər]",pos:"動詞",meaning:"は耐える；(心に)抱く",exEn:"The man could not <b>bear</b> his stomachache.",exJa:"その男性は胃痛に耐えることができなかった。",sec:"Section 1"},
+  {no:25,word:"affect",pron:"[əfékt]",pos:"動詞",meaning:"に影響を及ぼす；感動させる",exEn:"Your language can <b>affect</b> your way of thinking.",exJa:"言語は考え方に影響を及ぼす可能性がある。",sec:"Section 1"},
+  {no:26,word:"deal",pron:"[díːl]",pos:"動詞",meaning:"を処理する；取引する",exEn:"Our team <b>deals</b> with complaints from our customers.",exJa:"我がチームは顧客からの苦情を処理する。",sec:"Section 1"},
+  {no:27,word:"avoid",pron:"[əvɔ́id]",pos:"動詞",meaning:"を避ける",exEn:"She somehow <b>avoided</b> getting involved in the quarrel.",exJa:"彼女はどうにか口論に巻き込まれるのを避けた。",sec:"Section 1"},
+  {no:28,word:"relate",pron:"[riléit]",pos:"動詞",meaning:"を関連づける；関連している",exEn:"She believes blood types are <b>related</b> to personalities.",exJa:"彼女は血液型は性格に関連していると信じている。",sec:"Section 1"},
+  {no:29,word:"realize",pron:"[ríːəlaiz]",pos:"動詞",meaning:"に気づく；を実現する",exEn:"She <b>realized</b> that she was put in a difficult position.",exJa:"彼女は自分が難しい立場に置かれていることに気づいた。",sec:"Section 1"},
+  {no:30,word:"encourage",pron:"[inkə́ridʒ]",pos:"動詞",meaning:"を奨励する；を励ます",exEn:"Many companies <b>encourage</b> their employees not to work overtime.",exJa:"多くの会社は残業をしないよう奨励している。",sec:"Section 1"},
+  {no:31,word:"compare",pron:"[kəmpéər]",pos:"動詞",meaning:"を比較する",exEn:"She <b>compared</b> the Japanese economy with the U.S. economy.",exJa:"彼女は日本経済をアメリカ経済と比較した。",sec:"Section 1"},
+  {no:32,word:"measure",pron:"[méʒər]",pos:"動詞",meaning:"を測る；評価する",exEn:"She <b>measures</b> her temperature every morning.",exJa:"彼女は毎朝体温を測る。",sec:"Section 1"},
+  {no:33,word:"exist",pron:"[igzíst]",pos:"動詞",meaning:"存在する；生存する",exEn:"Some linguists think about 8,000 languages <b>exist</b> in the world.",exJa:"世界に約8,000の言語が存在すると考える言語学者がいる。",sec:"Section 1"},
+  {no:34,word:"challenge",pron:"[tʃǽlindʒ]",pos:"動詞",meaning:"に異議を唱える；挑戦",exEn:"He <b>challenged</b> the common belief that laughter is a unique human feature.",exJa:"彼は笑いが人間独自の特徴であるという常識に挑戦した。",sec:"Section 1"},
+  {no:35,word:"depend",pron:"[dipénd]",pos:"動詞",meaning:"頼る；次第である",exEn:"Children <b>depend</b> on their parents for many things.",exJa:"子供は多くのことを親に依存している。",sec:"Section 1"},
+  {no:36,word:"idea",pron:"[aidíːə]",pos:"名詞",meaning:"考え、思いつき；概念",exEn:"He came up with a good <b>idea</b> for the school party.",exJa:"彼は学校のパーティーに良い考えを思いついた。",sec:"Section 1"},
+  {no:37,word:"cause",pron:"[kɔ́ːz]",pos:"名詞",meaning:"原因；を引き起こす",exEn:"Air pollution is a major <b>cause</b> of health problems.",exJa:"大気汚染は健康問題の主要な原因である。",sec:"Section 1"},
+  {no:38,word:"effect",pron:"[ifékt]",pos:"名詞",meaning:"効果；結果",exEn:"Abnormal weather can have a negative <b>effect</b> on people's lives.",exJa:"異常気象は人々の生活に悪影響を与えかねない。",sec:"Section 1"},
+  {no:39,word:"influence",pron:"[ínfluəns]",pos:"名詞",meaning:"影響(力)",exEn:"Exercising has an important <b>influence</b> on one's health.",exJa:"運動することは人の健康に重大な影響を与える。",sec:"Section 1"},
+  {no:40,word:"environment",pron:"[invάirənmənt]",pos:"名詞",meaning:"環境；自然環境",exEn:"Recycling is an effective way to help the <b>environment</b>.",exJa:"リサイクルは自然環境を助けるための効果的な方法である。",sec:"Section 1"},
+  {no:41,word:"skill",pron:"[skíl]",pos:"名詞",meaning:"技能；熟練",exEn:"She needs to improve her cooking <b>skills</b> to become a chef.",exJa:"彼女は料理師になるために技能を向上させる必要がある。",sec:"Section 1"},
+  {no:42,word:"value",pron:"[vǽljuː]",pos:"名詞",meaning:"価値；評価する",exEn:"Many societies place a high <b>value</b> on education.",exJa:"多くの社会は教育に高い価値を置く。",sec:"Section 1"},
+  {no:43,word:"knowledge",pron:"[nɔ́lidʒ]",pos:"名詞",meaning:"知識；認識",exEn:"Most young adults have a good <b>knowledge</b> of computers.",exJa:"最近の若者の大半はコンピューターに関する豊富な知識を持っている。",sec:"Section 1"},
+  {no:44,word:"practice",pron:"[prǽktis]",pos:"名詞",meaning:"実践；慣習",exEn:"The manager decided to put his new ideas into <b>practice</b>.",exJa:"部長は自分の新しいアイデアを実行することに決めた。",sec:"Section 1"},
+  {no:45,word:"research",pron:"[rísəːrtʃ]",pos:"名詞",meaning:"研究、調査",exEn:"The team did <b>research</b> on life on Mars.",exJa:"そのチームは火星上の生命についての調査を行った。",sec:"Section 1"},
+  {no:46,word:"appropriate",pron:"[əpróupriit]",pos:"形容詞",meaning:"(に)適切な；適当な",exEn:"It is important to wear <b>appropriate</b> clothes for a job interview.",exJa:"就職の面接に適切な服装を着ることが重要だ。",sec:"Section 1"},
+  {no:47,word:"likely",pron:"[láikli]",pos:"形容詞",meaning:"ありそうな；しそうだ",exEn:"Some people believe AI robots are <b>likely</b> to replace most workers.",exJa:"AIロボットが大半の労働者に取って代わりそうだと思っている人がいる。",sec:"Section 1"},
+  {no:48,word:"possible",pron:"[pɔ́səbl]",pos:"形容詞",meaning:"可能な；できる",exEn:"Nowadays, it is <b>possible</b> to buy almost anything on the Internet.",exJa:"最近ではインターネットでほとんど何でも買うことが可能である。",sec:"Section 1"},
+  {no:49,word:"common",pron:"[kɔ́mən]",pos:"形容詞",meaning:"共通の；一般的な",exEn:"The team worked towards the <b>common</b> goal of winning.",exJa:"チームはその試合に勝つという共通の目標に向けて努力した。",sec:"Section 1"},
+  {no:50,word:"available",pron:"[əvéiləbl]",pos:"形容詞",meaning:"手に入る；利用可能な",exEn:"Tickets for the concert are <b>available</b> on the Internet.",exJa:"そのコンサートのチケットはインターネットで手に入る。",sec:"Section 1"},
+  {no:101,word:"notice",pron:"[nóutis]",pos:"動詞",meaning:"に気づく；通知",exEn:"The doctor quickly <b>noticed</b> a change in the patient's condition.",exJa:"医師は患者の状態の変化にすぐに気づいた。",sec:"Section 2"},
+  {no:102,word:"refer",pron:"[rifə́ːr]",pos:"動詞",meaning:"言及する；関連する",exEn:"The article <b>refers</b> to Darwin's theory of evolution.",exJa:"その記事はダーウィンの進化論に言及している。",sec:"Section 2"},
+  {no:103,word:"approach",pron:"[əpróutʃ]",pos:"動詞",meaning:"に近づく；取り組み方",exEn:"The car slowed down as it <b>approached</b> the curve.",exJa:"その車はカーブに近づくと速度を落とした。",sec:"Section 2"},
+  {no:104,word:"wonder",pron:"[wʌ́ndər]",pos:"動詞",meaning:"かなと思う；…かと思う",exEn:"The teacher <b>wondered</b> why John didn't attend today's class.",exJa:"教師はなぜジョンが授業に出席していないのかなと思った。",sec:"Section 2"},
+  {no:105,word:"imagine",pron:"[imǽdʒin]",pos:"動詞",meaning:"(を)想像する",exEn:"<b>Imagine</b> that you won the lottery.",exJa:"宝くじが当たったと想像する。",sec:"Section 2"},
+  {no:106,word:"recognize",pron:"[rékəgnaiz]",pos:"動詞",meaning:"を識別できる；と認識する",exEn:"He immediately <b>recognized</b> the building in the photo.",exJa:"彼はすぐにその写真の建物を識別できた。",sec:"Section 2"},
+  {no:107,word:"solve",pron:"[sɔ́lv]",pos:"動詞",meaning:"を解く；解明する",exEn:"She can <b>solve</b> any math problem quickly.",exJa:"彼女はどんな数学の問題もすぐに解くことができる。",sec:"Section 2"},
+  {no:108,word:"occur",pron:"[əkə́ːr]",pos:"動詞",meaning:"起こる；(考えが)浮かぶ",exEn:"Forest fires often <b>occur</b> in California.",exJa:"カリフォルニア州では森林火災がよく起こる。",sec:"Section 2"},
+  {no:109,word:"argue",pron:"[ɑ́ːrgjuː]",pos:"動詞",meaning:"と主張する；議論する",exEn:"He <b>argues</b> that the country needs new energy policies.",exJa:"彼はその国は新しいエネルギー政策が必要だと主張する。",sec:"Section 2"},
+  {no:110,word:"claim",pron:"[kléim]",pos:"動詞",meaning:"と主張する；要求する",exEn:"Some scientists <b>claim</b> that coffee lowers the risk of heart disease.",exJa:"コーヒーは心臓病のリスクを減らすと主張する科学者がいる。",sec:"Section 2"},
+  {no:111,word:"express",pron:"[iksprés]",pos:"動詞",meaning:"を表す；速達便",exEn:"The politician <b>expressed</b> his opinions on the leak of state secrets.",exJa:"その政治家は国家機密の漏洩に関する意見を表明した。",sec:"Section 2"},
+  {no:112,word:"draw",pron:"[drɔ́ː]",pos:"動詞",meaning:"を引き出す；絵を描く",exEn:"He <b>drew</b> a conclusion from a series of experiments.",exJa:"彼は一連の実験から結論を出した。",sec:"Section 2"},
+  {no:113,word:"waste",pron:"[wéist]",pos:"動詞",meaning:"を浪費する；無駄",exEn:"You should not <b>waste</b> too much time on chatting online.",exJa:"オンラインチャットに時間を浪費するべきではない。",sec:"Section 2"},
+  {no:114,word:"advance",pron:"[ədvǽns]",pos:"動詞",meaning:"を進歩させる；進む",exEn:"All citizens should <b>advance</b> their knowledge of global ecology.",exJa:"すべての市民は地球生態学の知識を進めるべきである。",sec:"Section 2"},
+  {no:115,word:"spread",pron:"[spréd]",pos:"動詞",meaning:"を広める；広まり",exEn:"He <b>spread</b> rumors about Mike on social media.",exJa:"彼はソーシャルメディアでうわさを広めた。",sec:"Section 2"},
+  {no:116,word:"prepare",pron:"[pripéər]",pos:"動詞",meaning:"を準備する；(for)",exEn:"He <b>prepared</b> a speech for his friend's wedding reception.",exJa:"彼は友人の結婚披露宴のためのスピーチを準備した。",sec:"Section 2"},
+  {no:117,word:"gain",pron:"[géin]",pos:"動詞",meaning:"を獲得する；増加する",exEn:"She <b>gained</b> a lot of experience in the music business.",exJa:"彼女は音楽業界で多くの経験を積んだ。",sec:"Section 2"},
+  {no:118,word:"achieve",pron:"[ətʃíːv]",pos:"動詞",meaning:"を達成する；成し遂げる",exEn:"You can <b>achieve</b> your goals by making a good plan.",exJa:"よい計画を立てることによって目標を達成することができる。",sec:"Section 2"},
+  {no:119,word:"establish",pron:"[istǽbliʃ]",pos:"動詞",meaning:"を確立する；設立する",exEn:"At a party, you can <b>establish</b> friendly relationships with others.",exJa:"パーティーでは他の人々と友好的な関係を確立することができる。",sec:"Section 2"},
+  {no:120,word:"supply",pron:"[səplái]",pos:"動詞",meaning:"を供給する",exEn:"This power plant <b>supplies</b> electricity to the whole city.",exJa:"この発電所は市全体に電気を供給している。",sec:"Section 2"},
+  {no:121,word:"perform",pron:"[pərfɔ́ːrm]",pos:"動詞",meaning:"(を)行う；演奏する",exEn:"The two researchers decided to <b>perform</b> an experiment together.",exJa:"2人の研究者は一緒に実験を行うことに決めた。",sec:"Section 2"},
+  {no:122,word:"prefer",pron:"[prifə́ːr]",pos:"動詞",meaning:"のほうを好む；prefer A to B",exEn:"Some people <b>prefer</b> e-books to printed books.",exJa:"印刷された本より電子書籍を好む人もいる。",sec:"Section 2"},
+  {no:123,word:"determine",pron:"[ditə́ːrmin]",pos:"動詞",meaning:"を決定する；を決意する",exEn:"It takes time to <b>determine</b> whether something is true or not.",exJa:"何かが正確かどうかを決定するには時間がかかる。",sec:"Section 2"},
+  {no:124,word:"treat",pron:"[tríːt]",pos:"動詞",meaning:"を扱う；を治療する",exEn:"Young people should <b>treat</b> their elders with respect.",exJa:"若者は敬意をもって年長者を扱うべきである。",sec:"Section 2"},
+  {no:125,word:"prove",pron:"[prúːv]",pos:"動詞",meaning:"を証明する；判明する",exEn:"Scientists have <b>proven</b> that dinosaurs once existed.",exJa:"科学者は恐竜がかつて存在したことを証明した。",sec:"Section 2"},
+  {no:126,word:"apply",pron:"[əplái]",pos:"動詞",meaning:"を適用する；申し込む",exEn:"The company <b>applied</b> a new theory to its product designs.",exJa:"その会社は商品設計に新しい理論を適用した。",sec:"Section 2"},
+  {no:127,word:"communicate",pron:"[kəmjúːnikèit]",pos:"動詞",meaning:"情報交換をする；を伝達する",exEn:"SNS allows users to <b>communicate</b> with others.",exJa:"SNSは利用者が情報交換するのを可能にする。",sec:"Section 2"},
+  {no:128,word:"contain",pron:"[kəntéin]",pos:"動詞",meaning:"を含む；を抑制する",exEn:"Junk food usually <b>contains</b> a lot of sugar and fat.",exJa:"ジャンクフードはたいていたくさんの砂糖と脂肪を含む。",sec:"Section 2"},
+  {no:129,word:"decline",pron:"[dikláin]",pos:"動詞",meaning:"減少する；断る",exEn:"The crime rate in the U.S. has <b>declined</b> steadily.",exJa:"アメリカにおける犯罪率は徐々に減少してきている。",sec:"Section 2"},
+  {no:130,word:"prevent",pron:"[privént]",pos:"動詞",meaning:"を妨げる；prevent from doing",exEn:"Strict laws may <b>prevent</b> people from committing violent crimes.",exJa:"厳しい法律は暴力犯罪を妨げるかもしれない。",sec:"Section 2"},
+  {no:131,word:"survive",pron:"[sərvάiv]",pos:"動詞",meaning:"を切り抜けて生き残る",exEn:"The man <b>survived</b> the traffic accident.",exJa:"その男性はその交通事故で生き残った。",sec:"Section 2"},
+  {no:132,word:"opportunity",pron:"[ɑ̀pərtjúːnəti]",pos:"名詞",meaning:"機会；an opportunity to do",exEn:"Most Japanese do not have an <b>opportunity</b> to use English every day.",exJa:"たいていの日本人は毎日英語を使う機会がない。",sec:"Section 2"},
+  {no:133,word:"economy",pron:"[ikɔ́nəmi]",pos:"名詞",meaning:"経済(状態)；節約",exEn:"I wonder if higher wages are good for the Japanese <b>economy</b>.",exJa:"より高い賃金は日本経済にとってよいことだろうか。",sec:"Section 2"},
+  {no:134,word:"policy",pron:"[pɔ́ləsi]",pos:"名詞",meaning:"政策；方針",exEn:"The government is changing its free-market <b>policy</b>.",exJa:"政府は自由市場政策を変えしつつある。",sec:"Section 2"},
+  {no:135,word:"damage",pron:"[dǽmidʒ]",pos:"名詞",meaning:"損害；影響；を傷つける",exEn:"The hurricane caused great <b>damage</b> in the city.",exJa:"ハリケーンはその街に大きな損害を与えた。",sec:"Section 2"},
+  {no:136,word:"impact",pron:"[ímpækt]",pos:"名詞",meaning:"影響；have an impact on",exEn:"A wasteful use of resources has a negative <b>impact</b> on the environment.",exJa:"資源の無駄遣いは環境に否定的な影響をおよぼす。",sec:"Section 2"},
+  {no:137,word:"significant",pron:"[signífikənt]",pos:"形容詞",meaning:"重要な；意味深い",exEn:"There are <b>significant</b> differences between having knowledge and using it.",exJa:"知識があることとそれを使うことの間には重大な違いがある。",sec:"Section 2"},
+  {no:138,word:"essential",pron:"[isénʃəl]",pos:"形容詞",meaning:"(に)必要不可欠な；本質的な",exEn:"Friends are <b>essential</b> for our lives.",exJa:"友人は私たちの人生に不可欠である。",sec:"Section 2"},
+  {no:139,word:"official",pron:"[əfíʃəl]",pos:"形容詞",meaning:"公用の；公式の",exEn:"Hebrew is the <b>official</b> language of Israel.",exJa:"ヘブライ語はイスラエルの公用語である。",sec:"Section 2"},
+  {no:140,word:"financial",pron:"[finǽnʃəl]",pos:"形容詞",meaning:"財政(上)の；財務",exEn:"The company received <b>financial</b> support from a bank.",exJa:"その会社は銀行から財政的支援を受けた。",sec:"Section 2"},
+  {no:141,word:"aware",pron:"[əwéər]",pos:"形容詞",meaning:"気づいて；be aware of",exEn:"We are <b>aware</b> of the importance of learning a second language.",exJa:"私たちは第二言語を学ぶことの重要性に気づいている。",sec:"Section 2"},
+  {no:142,word:"eventually",pron:"[ivéntʃuəli]",pos:"副詞",meaning:"結局(は)；最終的に",exEn:"She <b>eventually</b> earned a Ph.D. in mathematics from Yale University.",exJa:"彼女は結局エール大学から数学の博士号を取得した。",sec:"Section 2"},
+];
+
+let deck=[], idx=0, goodSet=new Set(), badSet=new Set(), filter='all';
+
+function shuffle(a){
+  for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}
+  return a;
+}
+function buildDeck(){
+  deck = (filter==='unknown' && badSet.size>0)
+    ? shuffle(VOCAB.filter(v=>badSet.has(v.no)))
+    : shuffle([...VOCAB]);
+  idx=0; goodSet.clear(); badSet.clear();
+}
+function setFilter(f){
+  filter=f;
+  document.getElementById('pill-all').classList.toggle('on', f==='all');
+  document.getElementById('pill-unknown').classList.toggle('on', f==='unknown');
+}
+function render(){
+  const v=deck[idx];
+  document.getElementById('card').classList.remove('show-back');
+  document.getElementById('c-sec').textContent = v.sec;
+  document.getElementById('c-word').textContent = v.word;
+  document.getElementById('c-pron').textContent = v.pron;
+  const pb = document.getElementById('c-pos');
+  pb.textContent = v.pos;
+  pb.className = 'pos-badge pos-'+v.pos;
+  document.getElementById('c-meaning').textContent = v.meaning;
+  document.getElementById('c-ex-en').innerHTML = v.exEn;
+  document.getElementById('c-ex-ja').textContent = v.exJa;
+  const done = goodSet.size+badSet.size, total = deck.length;
+  document.getElementById('prog').style.width = (done/total*100)+'%';
+  document.getElementById('cur').textContent = idx+1;
+  document.getElementById('tot').textContent = total;
+  document.getElementById('s-good').textContent = goodSet.size;
+  document.getElementById('s-bad').textContent  = badSet.size;
+  document.getElementById('s-left').textContent = total-done;
+}
+function flip(){
+  document.getElementById('card').classList.toggle('show-back');
+}
+function next(good){
+  good ? goodSet.add(deck[idx].no) : badSet.add(deck[idx].no);
+  idx++;
+  if(idx >= deck.length){ showDone(); return; }
+  render();
+}
+function answer(good){
+  const card = document.getElementById('card');
+  if(!card.classList.contains('show-back')){ card.classList.add('show-back'); return; }
+  next(good);
+}
+function showDone(){
+  document.getElementById('d-good').textContent = goodSet.size;
+  document.getElementById('d-bad').textContent  = badSet.size;
+  const pct = Math.round(goodSet.size/deck.length*100);
+  document.getElementById('done-sub').textContent = '全 '+deck.length+' 語完了！正解率 '+pct+'%';
+  const rb = document.getElementById('btn-retry');
+  if(badSet.size > 0){ rb.style.display='block'; rb.textContent='✗ 未習得 '+badSet.size+'語 を復習する'; }
+  else{ rb.style.display='none'; }
+  document.getElementById('done').classList.add('show');
+}
+function restart(unknownOnly){
+  document.getElementById('done').classList.remove('show');
+  if(unknownOnly){
+    const nos=[...badSet];
+    deck=shuffle(VOCAB.filter(v=>nos.includes(v.no)));
+    idx=0; goodSet.clear(); badSet.clear();
+  } else { buildDeck(); }
+  render();
+}
+
+buildDeck();
+render();
+</script>
+</body>
+</html>
