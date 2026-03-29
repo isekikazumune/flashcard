@@ -240,6 +240,18 @@ button#card.swiping-bad{border-color:var(--red);background:rgba(240,96,96,.08)}
 
 [data-fs="sm"]{--fs-base:.88rem}[data-fs="md"]{--fs-base:1rem}[data-fs="lg"]{--fs-base:1.1rem}
 ::-webkit-scrollbar{width:4px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}
+
+/* ── 確認モーダル ── */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:100;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .2s}
+.modal-overlay.show{opacity:1;pointer-events:all}
+.modal-box{background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:22px 22px 16px;max-width:300px;width:88%;text-align:center;display:flex;flex-direction:column;gap:12px;box-shadow:var(--card-shadow);transform:scale(.94);transition:transform .2s}
+.modal-overlay.show .modal-box{transform:scale(1)}
+.modal-msg{font-size:.88rem;line-height:1.6;color:var(--text)}
+.modal-btns{display:flex;gap:8px}
+.modal-btn{flex:1;padding:10px;border:none;border-radius:11px;font-family:"Noto Sans JP",sans-serif;font-size:.84rem;font-weight:700;cursor:pointer}
+.modal-btn:active{opacity:.75}
+.modal-cancel{background:var(--surface2);border:1.5px solid var(--border);color:var(--muted)}
+.modal-confirm{background:rgba(240,96,96,.15);border:1.5px solid rgba(240,96,96,.4);color:var(--red)}
 </style>
 </head>
 <body>
@@ -472,6 +484,17 @@ button#card.swiping-bad{border-color:var(--red);background:rgba(240,96,96,.08)}
     <div class="stats-card-title">⚠️ 苦手単語リスト <span id="weak-count-label" style="color:var(--red)"></span></div>
     <div class="weak-list" id="weak-list"></div>
     <button class="btn-clear" onclick="clearWeak()">苦手リストをリセット</button>
+  </div>
+</div>
+
+<!-- 確認モーダル -->
+<div class="modal-overlay" id="confirm-modal">
+  <div class="modal-box">
+    <div class="modal-msg" id="confirm-msg"></div>
+    <div class="modal-btns">
+      <button class="modal-btn modal-cancel" onclick="modalClose()">キャンセル</button>
+      <button class="modal-btn modal-confirm" id="confirm-ok">中断して戻る</button>
+    </div>
   </div>
 </div>
 
@@ -1132,14 +1155,28 @@ function renderHistGraph(){
 }
 
 function clearWeak(){
-  if(!confirm("苦手リストをリセットしますか？")) return;
-  weakMap.clear(); saveWeak(weakMap);
-  showStats(); updateHome();
+  modalOpen("苦手リストをリセットしますか？", ()=>{
+    weakMap.clear(); saveWeak(weakMap);
+    showStats(); updateHome();
+  });
+}
+
+function modalClose(){
+  document.getElementById("confirm-modal").classList.remove("show");
+}
+function modalOpen(msg, onOk){
+  document.getElementById("confirm-msg").textContent = msg;
+  const okBtn = document.getElementById("confirm-ok");
+  okBtn.onclick = ()=>{ modalClose(); onOk(); };
+  document.getElementById("confirm-modal").classList.add("show");
 }
 
 function confirmHome(){
-  if(goodSet.size+badSet.size===0||confirm(`${goodSet.size+badSet.size}語まで進んでいます。\n中断してホームに戻りますか？`)){
+  const done = goodSet.size + badSet.size;
+  if(done === 0){
     goHome();
+  } else {
+    modalOpen(`${done}語まで進んでいます。\n中断してホームに戻りますか？`, goHome);
   }
 }
 
